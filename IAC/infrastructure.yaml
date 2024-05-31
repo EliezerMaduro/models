@@ -144,6 +144,7 @@ Resources:
         - Key: Name
           Value: !Sub "${AWS::StackName}-PrivateRouteTable2"
 
+
   # Subnet Route Table Associations
   PublicSubnet1RouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
