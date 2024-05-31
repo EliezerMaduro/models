@@ -1,0 +1,604 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: "AWS CloudFormation template for the given architecture"
+
+Parameters:
+  VpcCIDR:
+    Type: String
+    Default: "172.16.0.0/16"
+    Description: "CIDR block for the VPC"
+
+  PublicSubnet1CIDR:
+    Type: String
+    Default: "172.16.1.0/24"
+    Description: "CIDR block for the public subnet 1"
+
+  PublicSubnet2CIDR:
+    Type: String
+    Default: "172.16.3.0/24"
+    Description: "CIDR block for the public subnet 2"
+
+  PrivateSubnet1CIDR:
+    Type: String
+    Default: "172.16.2.0/24"
+    Description: "CIDR block for the private subnet 1"
+
+  PrivateSubnet2CIDR:
+    Type: String
+    Default: "172.16.4.0/24"
+    Description: "CIDR block for the private subnet 2"
+
+  RepositoryUrl:
+    Type: String
+    Default: "https://github.com/EliezerMaduro/models"
+    Description: "Repository URL"
+
+  GithubUser:
+    Type: String
+    Default: EliezerMaduro
+    Description: "Github User"
+
+  LabRoleARN:
+    Type: String
+    Default: "arn:aws:iam::792968690698:role/LabRole"
+    Description: "Github User"
+
+
+Resources:
+  # VPC
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCIDR
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-VPC"
+
+  # Subnets
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet1CIDR
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PublicSubnet1"
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnet2CIDR
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PublicSubnet2"
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet1CIDR
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PrivateSubnet1"
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PrivateSubnet2CIDR
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PrivateSubnet2"
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-InternetGateway"
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # Route Tables
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PublicRouteTable"
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PrivateRouteTable1"
+
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PrivateRouteTable2"
+
+  # Subnet Route Table Associations
+  PublicSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  PrivateSubnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+
+  PrivateSubnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+
+  # Security Groups
+  EksClusterSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "EKS Cluster Security Group"
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-EksClusterSG"
+
+  # EKS Cluster
+  EksCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: !Sub "${AWS::StackName}-eks-cluster"
+      ResourcesVpcConfig:
+        SecurityGroupIds:
+          - !Ref EksClusterSecurityGroup
+        SubnetIds:
+          - !Ref PublicSubnet1
+          - !Ref PublicSubnet2
+          - !Ref PrivateSubnet1
+          - !Ref PrivateSubnet2
+
+  # # IAM Roles and Policies for EKS and Fargate
+  # EksClusterRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: 
+  #               - eks.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Path: "/"
+  #     Policies:
+  #       - PolicyName: !Sub "${AWS::StackName}-EKS-Cluster-Policy"
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - eks:DescribeCluster
+  #               Resource: "*"
+
+  # FargatePodExecutionRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: 
+  #               - eks-fargate-pods.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Path: "/"
+  #     ManagedPolicyArns:
+  #       - arn:aws:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy
+
+  # S3 Buckets
+  S3BucketClickStreamLog:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-clickstream-log"
+
+  S3BucketModels:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-models"
+
+  # DynamoDB Table
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-table"
+      AttributeDefinitions:
+        - AttributeName: "id"
+          AttributeType: "S"
+      KeySchema:
+        - AttributeName: "id"
+          KeyType: "HASH"
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+  # VPC Endpoints
+  DynamoDBVpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.dynamodb"
+      VpcEndpointType: Interface
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref EksClusterSecurityGroup
+
+  S3VpcEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcEndpointType: Gateway
+      RouteTableIds:
+        - !Ref PrivateRouteTable1
+        - !Ref PrivateRouteTable2
+
+  # Kinesis Data Stream
+  KinesisDataStream:
+    Type: AWS::Kinesis::Stream
+    Properties:
+      Name: !Sub "${AWS::StackName}-data-stream"
+      ShardCount: 1
+
+  KinesisFirehose:
+    Type: AWS::KinesisFirehose::DeliveryStream
+    Properties:
+      DeliveryStreamName: !Sub "${AWS::StackName}-firehose"
+      S3DestinationConfiguration:
+        BucketARN: !GetAtt S3BucketClickStreamLog.Arn
+        RoleARN: !Ref LabRoleARN
+
+  # FirehoseDeliveryRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: firehose.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Policies:
+  #       - PolicyName: FirehoseDeliveryPolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - s3:PutObject
+  #                 - s3:PutObjectAcl
+  #                 - s3:PutObjectTagging
+  #                 - s3:GetBucketLocation
+  #               Resource: !Sub "${S3BucketClickStreamLog.Arn}/*"
+
+  # API Gateway
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: !Sub "${AWS::StackName}-api"
+      Description: "API Gateway for the application"
+
+  ApiGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      ParentId: !GetAtt ApiGatewayRestApi.RootResourceId
+      PathPart: "{proxy+}"
+      RestApiId: !Ref ApiGatewayRestApi
+
+  # ApiGatewayMethod:
+  #   Type: AWS::ApiGateway::Method
+  #   Properties:
+  #     AuthorizationType: NONE
+  #     HttpMethod: GET
+  #     ResourceId: !Ref ApiGatewayResource
+  #     RestApiId: !Ref ApiGatewayRestApi
+  #     Integration:
+  #       Type: HTTP_PROXY
+  #       IntegrationHttpMethod: ANY
+  #       Uri: !Sub "http://${ALB}/eks-path"
+
+  # ApiGatewayDeployment:
+  #   Type: AWS::ApiGateway::Deployment
+  #   Properties:
+  #     RestApiId: !Ref ApiGatewayRestApi
+  #     StageName: "prod"
+  #   DependsOn: ApiGatewayMethod
+
+  # Amplify
+  AmplifyApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: !Sub "${AWS::StackName}-amplify"
+      Repository: !Ref RepositoryUrl
+      OauthToken: !Ref GithubOauthToken
+      BuildSpec: |
+        version: 1
+        frontend:
+          phases:
+            preBuild:
+              commands:
+                - cd frontend
+                - npm install
+            build:
+              commands:
+                - npm run build
+          artifacts:
+            baseDirectory: frontend/build
+            files:
+              - '**/*'
+          cache:
+            paths:
+              - node_modules/**/*
+      EnvironmentVariables:
+        - Name: NODE_ENV
+          Value: production
+
+  AmplifyBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !Ref AmplifyApp
+      BranchName: "main"
+      Stage: PRODUCTION
+
+  # CodePipeline
+  # Pipeline:
+  #   Type: AWS::CodePipeline::Pipeline
+  #   Properties:
+  #     RoleArn: !GetAtt CodePipelineRole.Arn
+  #     Stages:
+  #       - Name: Source
+  #         Actions:
+  #           - Name: Source
+  #             ActionTypeId:
+  #               Category: Source
+  #               Owner: ThirdParty
+  #               Provider: GitHub
+  #               Version: "1"
+  #             OutputArtifacts:
+  #               - Name: SourceOutput
+  #             Configuration:
+  #               Owner: !Ref GithubUser
+  #               Repo: !Ref RepositoryUrl
+  #               Branch: "main"
+  #               OAuthToken: !Ref GithubOauthToken
+  #       - Name: Build
+  #         Actions:
+  #           - Name: Build
+  #             ActionTypeId:
+  #               Category: Build
+  #               Owner: AWS
+  #               Provider: CodeBuild
+  #               Version: "1"
+  #             InputArtifacts:
+  #               - Name: SourceOutput
+  #             OutputArtifacts:
+  #               - Name: BuildOutput
+  #             Configuration:
+  #               ProjectName: !Ref CodeBuildProject
+  #       - Name: Deploy
+  #         Actions:
+  #           - Name: Deploy
+  #             ActionTypeId:
+  #               Category: Deploy
+  #               Owner: AWS
+  #               Provider: CloudFormation
+  #               Version: "1"
+  #             InputArtifacts:
+  #               - Name: BuildOutput
+  #             Configuration:
+  #               StackName: !Sub "${AWS::StackName}-stack"
+  #               Capabilities: CAPABILITY_IAM
+  #               TemplatePath: BuildOutput::outputtemplate.yaml
+  #     ArtifactStore:
+  #       Type: S3
+  #       Location: !Ref S3ArtifactBucket
+
+  S3ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${AWS::StackName}-artifacts"
+
+  # CodePipelineRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: codepipeline.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Policies:
+  #       - PolicyName: CodePipelinePolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - s3:*
+  #                 - codebuild:*
+  #                 - cloudformation:*
+  #               Resource: "*"
+
+  # CodeBuildProject:
+  #   Type: AWS::CodeBuild::Project
+  #   Properties:
+  #     Name: !Sub "${AWS::StackName}-build"
+  #     Source:
+  #       Type: CODEPIPELINE
+  #     Artifacts:
+  #       Type: CODEPIPELINE
+  #     Environment:
+  #       ComputeType: BUILD_GENERAL1_SMALL
+  #       Image: aws/codebuild/standard:4.0
+  #       Type: LINUX_CONTAINER
+  #     ServiceRole: !GetAtt CodeBuildRole.Arn
+
+  # CodeBuildRole:
+  #   Type: AWS::IAM::Role
+  #   Properties:
+  #     AssumeRolePolicyDocument:
+  #       Version: '2012-10-17'
+  #       Statement:
+  #         - Effect: Allow
+  #           Principal:
+  #             Service: codebuild.amazonaws.com
+  #           Action: sts:AssumeRole
+  #     Policies:
+  #       - PolicyName: CodeBuildPolicy
+  #         PolicyDocument:
+  #           Version: '2012-10-17'
+  #           Statement:
+  #             - Effect: Allow
+  #               Action:
+  #                 - s3:*
+  #                 - codebuild:*
+  #               Resource: "*"
+
+  # Fargate Service
+  FargateCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub "${AWS::StackName}-fargate-cluster"
+
+  FargateTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub "${AWS::StackName}-task"
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: "256"
+      Memory: "512"
+      ContainerDefinitions:
+        - Name: app
+          Image: "your-docker-image"
+          Essential: true
+          PortMappings:
+            - ContainerPort: 80
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref "AWS::Region"
+              awslogs-stream-prefix: app
+
+  FargateService:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref FargateCluster
+      DesiredCount: 1
+      TaskDefinition: !Ref FargateTaskDefinition
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets:
+            - !Ref PublicSubnet1
+            - !Ref PublicSubnet2
+          SecurityGroups:
+            - !Ref FargateSecurityGroup
+
+  FargateSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Fargate Security Group"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-FargateSG"
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "${AWS::StackName}-log-group"
+      RetentionInDays: 7
+
+Outputs:
+  VpcId:
+    Description: "VPC Id"
+    Value: !Ref VPC
+
+  EksClusterName:
+    Description: "EKS Cluster Name"
+    Value: !Ref EksCluster
+
+  S3BucketClickStreamLogName:
+    Description: "S3 Bucket for Click Stream Log"
+    Value: !Ref S3BucketClickStreamLog
+
+  S3BucketModelsName:
+    Description: "S3 Bucket for Models"
+    Value: !Ref S3BucketModels
+
+  DynamoDBTableName:
+    Description: "DynamoDB Table Name"
+    Value: !Ref DynamoDBTable
+
+  ApiGatewayUrl:
+    Description: "API Gateway URL"
+    Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  AmplifyAppId:
+    Description: "Amplify App Id"
+    Value: !Ref AmplifyApp
+
+  FargateClusterName:
+    Description: "Fargate Cluster Name"
+    Value: !Ref FargateCluster
+
+  CodePipelineId:
+    Description: "CodePipeline Id"
+    Value: !Ref Pipeline
