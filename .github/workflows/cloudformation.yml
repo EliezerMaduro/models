@@ -16,7 +16,7 @@ jobs:
     - name: Check if stack exists
       id: check_stack
       run: |
-        aws cloudformation describe-stacks --stack-name ComputacionNubeFinal > /dev/null 2>&1
+        aws cloudformation describe-stacks --stack-name ComputacionNubeFinal
         if [ $? -eq 0 ]; then
           echo "::set-output name=stack_exists::true"
         else
