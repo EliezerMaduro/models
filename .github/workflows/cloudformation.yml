@@ -6,16 +6,39 @@ on:
       - 'IAC/**'
 
 jobs:
-  update-stack:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Update CloudFormation Stack
+    - name: Check if stack exists
+      id: check_stack
+      run: |
+        aws cloudformation describe-stacks --stack-name <nombre-de-tu-stack> > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+          echo "::set-output name=stack_exists::true"
+        else
+          echo "::set-output name=stack_exists::false"
+        fi
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Deploy or Update CloudFormation Stack
+      if: steps.check_stack.outputs.stack_exists == 'true'
       run: |
         aws cloudformation update-stack --stack-name ComputacionNubeFinal --template-body file://IAC/infrastructure.yaml --parameters ParameterKey=GithubOauthToken,ParameterValue=$REPOSITORY_TOKEN --capabilities CAPABILITY_NAMED_IAM
+      env:
+        REPOSITORY_TOKEN: ${{ secrets.REPOSITORY_TOKEN }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+    - name: Create CloudFormation Stack
+      if: steps.check_stack.outputs.stack_exists == 'false'
+      run: |
+        aws cloudformation create-stack --stack-name ComputacionNubeFinal --template-body file://IAC/infrastructure.yaml --parameters ParameterKey=GithubOauthToken,ParameterValue=$GITHUB_TOKEN --capabilities CAPABILITY_NAMED_IAM
       env:
         REPOSITORY_TOKEN: ${{ secrets.REPOSITORY_TOKEN }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
