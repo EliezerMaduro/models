@@ -1,0 +1,23 @@
+{
+    "id": {
+      "S": "2"
+    },
+    "name": {
+      "S": "Facial Recognition"
+    },
+    "image": {
+      "S": "/images/img-face.jpeg"
+    },
+    "author": {
+      "S": "Jhon Doe"
+    },
+    "description": {
+      "S": "El modelo permite subir una foto y determinar la emoción en el rostro."
+    },
+    "status": {
+      "S": "Disponible"
+    },
+    "price": {
+      "S": "$30 usd"
+    }
+  }

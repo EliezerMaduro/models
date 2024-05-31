@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kinesis-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kinesis-agent
+  template:
+    metadata:
+      labels:
+        app: kinesis-agent
+    spec:
+      containers:
+      - name: kinesis-agent
+        image: <imagen_del_agente_de_kinesis>
+        env:
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: access-key-id
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: secret-access-key
+        # Otros parámetros de configuración del agente de Kinesis

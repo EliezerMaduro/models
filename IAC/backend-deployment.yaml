@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-service
+  labels:
+    app: backend-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend-service
+  template:
+    metadata:
+      labels:
+        app: backend-service
+    spec:
+      containers:
+        - name: backend-service
+          image: 792968690698.dkr.ecr.us-east-1.amazonaws.com/backend-service:latest
+          ports:
+            - containerPort: 5001
+          resources:
+            requests:
+              memory: "200Mi"
+              cpu: "300m"
+            limits:
+              memory: "200Mi"
+              cpu: "300m"
+        # - name: kinesis-datastream
+        #   image: 792968690698.dkr.ecr.us-east-1.amazonaws.com/kinesis-datastream:latest
+        #   resources:
+        #     requests:
+        #       memory: "200Mi"
+        #       cpu: "300m"
+        #     limits:
+        #       memory: "200Mi"
+        #       cpu: "300m"

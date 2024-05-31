@@ -1,0 +1,23 @@
+{
+    "id": {
+      "S": "1"
+    },
+    "name": {
+      "S": "Sentiment Analysis"
+    },
+    "image": {
+      "S": "/images/img-sentiment.png"
+    },
+    "author": {
+      "S": "Jane Doe"
+    },
+    "description": {
+      "S": "Este modelo permite dado un texto corto tipo tweet, determinar el sentimiento asociado al texto."
+    },
+    "status": {
+      "S": "Disponible"
+    },
+    "price": {
+      "S": "$50 usd"
+    }
+  }
