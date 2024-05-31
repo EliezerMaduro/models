@@ -15,7 +15,7 @@ jobs:
 
     - name: Update CloudFormation Stack
       run: |
-        aws cloudformation update-stack --stack-name <nombre-de-tu-stack> --template-body file://IAC/infrastructure.yaml --parameters ParameterKey=GithubOauthToken,ParameterValue=$REPOSITORY_TOKEN --capabilities CAPABILITY_NAMED_IAM
+        aws cloudformation update-stack --stack-name ComputacionNubeFinal --template-body file://IAC/infrastructure.yaml --parameters ParameterKey=GithubOauthToken,ParameterValue=$REPOSITORY_TOKEN --capabilities CAPABILITY_NAMED_IAM
       env:
         REPOSITORY_TOKEN: ${{ secrets.REPOSITORY_TOKEN }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
